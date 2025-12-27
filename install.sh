@@ -18,10 +18,9 @@ echo "📦 Step 1/5: Updating packages..."
 pkg update -y && pkg upgrade -y
 
 # 2. Install dependencies
-echo "🔧 Step 2/5: Installing dependencies (Python, GPG, Git)..."
-# Note: cryptography may require build tools on Termux (clang, rust) and OpenSSL headers
-# Install them if you encounter build errors: pkg install clang rust openssl-dev libffi-dev -y
-pkg install python gnupg git -y
+echo "🔧 Step 2/5: Installing dependencies (Python, GPG, Git, and build tools)..."
+# Install build deps required for compiling some Python packages (e.g., cryptography)
+pkg install -y python gnupg git clang rust openssl-dev libffi-dev
 
 
 # 3. Clone or update repository
