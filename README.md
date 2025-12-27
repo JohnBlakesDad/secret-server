@@ -84,23 +84,26 @@ Transparency is part of the design — read the code, verify the flow, and trust
 
 ## 🚀 Termux Installation (recommended)
 
+**Important:** `install.sh` is a **Termux-only installer**. It will detect whether it is running under Termux (via the `pkg` command) and abort on other systems. If you're not on Termux, follow the "manual steps" below or see the main README for platform-specific instructions.
+
 **Quick (one-line)** — download and run the installer (review it first):
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/JohnBlakesDad/secret-server/main/install.sh -o install.sh
-# Inspect the script, then run it:
+# Download and inspect first (recommended):
+curl -fsSL https://raw.githubusercontent.com/JohnBlakesDad/secret-server/main/install.sh -o install.sh
 less install.sh
 bash install.sh
 ```
 
-**Safer (recommended) — manual steps:**
+**Safer (recommended) — manual steps on Termux:**
 
 ```bash
 # 1. Update packages
 pkg update && pkg upgrade -y
 
 # 2. Install base + build deps (required for building cryptography on some devices)
-pkg install -y python git curl gnupg clang rust openssl-dev libffi-dev
+# NOTE: Termux package names (no '-dev' suffix). 'curl' and 'gnupg' are optional.
+pkg install -y python git clang rust openssl libffi
 
 # 3. Clone repo and create a virtualenv
 git clone https://github.com/JohnBlakesDad/secret-server.git
@@ -122,8 +125,8 @@ PY
 ```
 
 **Notes & tips**
-- Inspect `install.sh` before running remote code. Use the manual flow if you prefer more control. ⚠️
-- If `cryptography` fails to install, make sure `clang`, `rust`, `openssl-dev`, and `libffi-dev` are present (see step 2).
+- `install.sh` will abort if not running under Termux (it checks for the `pkg` command); this avoids attempting incompatible package installs on other systems. ⚠️
+- If `cryptography` fails to install, make sure `clang`, `rust`, `openssl`, and `libffi` are present (see step 2).
 - `start_server.sh` will create a `venv` automatically if it doesn't exist and attempt to install requirements.
 - The installer adds an alias `secret-server` to your shell config (e.g., `~/.bashrc`) to make starting easier.
 

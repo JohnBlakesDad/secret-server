@@ -19,13 +19,6 @@ class CryptoResult:
         return base64.b64encode(self.data).decode('utf-8')
 
 
-<<<<<<< HEAD
-def encrypt_secret(plaintext: str, passphrase: str) -> CryptoResult:
-    # NOTE: This is a simple placeholder for tests only. Do not use in production.
-    try:
-        data = plaintext.encode('utf-8')
-        return CryptoResult(True, data=data)
-=======
 # Crypto parameters
 _SALT_SIZE = 16  # bytes
 _KDF_ITERATIONS = 600_000  # PBKDF2 iterations (adjustable)
@@ -60,7 +53,8 @@ def encrypt_secret(plaintext: str, passphrase: str) -> CryptoResult:
         f = Fernet(fernet_key)
         token = f.encrypt(plaintext.encode('utf-8'))
         return CryptoResult(True, data=salt + token)
->>>>>>> origin/main
+    except Exception as e:
+        return CryptoResult(False, status=str(e))
     except Exception as e:
         return CryptoResult(False, status=str(e))
 
