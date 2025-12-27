@@ -129,6 +129,13 @@ echo "🐍 Step 4/5: Installing Python libraries into a virtualenv..."
 python -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
+
+#xxxx
+# These point the "chef" (compiler) to the "pantry" (Termux paths)
+export LDFLAGS="-L${PREFIX}/lib"
+export CPPFLAGS="-I${PREFIX}/include"
+# xxxx
+
 pip install -r requirements.txt
 # Deactivate to avoid leaving venv active in the installer
 deactivate || true
