@@ -1,0 +1,2 @@
+file in it: ~/bin/ip-addr-wifi-attached.py that gets the ip address  of the android  and devices connected to it through the hotspot - I want this inplemented in the auth process dynamically so that only hotspot connected devices can access the "secret-server" - does this make sense?
+
