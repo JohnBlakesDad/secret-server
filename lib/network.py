@@ -38,33 +38,81 @@ def get_interface_ip(iface):
         pass
     return None
 
+def get_ip_from_socket():
+    """
+    Get local IP via UDP socket (doesn't send data).
+    Robust on Android even without shell command permissions.
+    """
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # doesn't need to be reachable
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+        s.close()
+        return IP
+    except Exception:
+        return None
+
 def get_hotspot_info():
     """
     Get hotspot interface, IP, and calculated /24 subnet.
     Returns: (subnet_cidr_str, gateway_ip, interface_name)
-    Example: ('192.168.43.0/24', '192.168.43.1', 'wlan0')
     """
+    # Strategy 1: 'ip addr' command (Modern Linux/Android)
+    try:
+        result = subprocess.run(['ip', 'addr'], capture_output=True, text=True)
+        # Simplified parsing: look for common hotspot interface names
+        current_iface = None
+        for line in result.stdout.splitlines():
+            # roughly parse lines
+            parts = line.strip().split()
+            if not parts: continue
+            
+            # Line starting with number is interface
+            if line[0].isdigit() and ':' in line:
+                iface_name = parts[1].strip(':')
+                if any(kw in iface_name.lower() for kw in ('wlan', 'ap', 'tether', 'rndis')):
+                    current_iface = iface_name
+                else:
+                    current_iface = None
+            
+            # active interface block
+            if current_iface and 'inet' in parts and '/' in line:
+                # found an IP on a hotspot-like interface!
+                # parts usually: inet 192.168.1.1/24 ...
+                for p in parts:
+                    if '/' in p and p[0].isdigit():
+                        try:
+                            network = ipaddress.ip_network(p, strict=False)
+                            return str(network), str(network.network_address), current_iface
+                        except ValueError:
+                            pass
+    except Exception:
+        pass
+
+    # Strategy 2: 'ifconfig' (Legacy/Termux)
     iface = get_hotspot_interface_ifconfig()
-    
-    # Fallback probe common names if detection failed
-    if not iface:
-        common_ifaces = ['wlan0', 'wlan1', 'ap0', 'tether0', 'rndis0']
-        for cand in common_ifaces:
-            if get_interface_ip(cand):
-                iface = cand
-                break
-    
     if iface:
         ip = get_interface_ip(iface)
         if ip:
-            # Assume /24 subnet for hotspots (standard behavior)
-            # 192.168.43.1 -> 192.168.43.0/24
             try:
                 network = ipaddress.ip_network(f"{ip}/24", strict=False)
                 return str(network), ip, iface
             except ValueError:
                 pass
-                
+    
+    # Strategy 3: Socket Fallback (Best Guess)
+    # If we can't find the interface, we get the local IP and assume IT is the hotspot 
+    # (or we are connected TO a hotspot).
+    # This is a bit looser but ensures we don't block valid traffic if commands fail.
+    local_ip = get_ip_from_socket()
+    if local_ip and not local_ip.startswith('127.'):
+        try:
+             network = ipaddress.ip_network(f"{local_ip}/24", strict=False)
+             return str(network), local_ip, "unknown"
+        except ValueError:
+             pass
+
     return None, None, None
 
 def is_ip_in_hotspot_subnet(ip_addr):
