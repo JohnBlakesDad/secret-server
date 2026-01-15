@@ -22,40 +22,24 @@ def restrict_access():
     Security Gatekeeper:
     Only allow access from:
     1. Localhost (The phone itself)
-    2. Devices listed in the ARP table (Connected to Hotspot/Wifi)
+    2. Devices on the Hotspot Subnet
     """
-    # Always allow static files (handled by Flask mostly) if needed.
-    
     remote_ip = request.remote_addr
     
     # 1. Allow Localhost
     if remote_ip == '127.0.0.1' or remote_ip == 'localhost':
         return None  # Access Granted
         
-    # 2. Allow Connected Peers (Hotspot Clients)
-    # We refresh this list on every request.
+    # 2. Allow Hotspot Subnet Clients
     from lib import network
-    auth_success = False
     
-    # Check 1: Strict ARP/Neighbor Table Validation (Best Security)
+    # Check 1: Is it in the subnet? (Fast, robust)
+    if network.is_ip_in_hotspot_subnet(remote_ip):
+         return None # Access Granted
+         
+    # Check 2: (Backup) Is it in ARP table? (Legacy check)
     allowed_peers = network.get_connected_peers()
     if remote_ip in allowed_peers:
-        auth_success = True
-        
-    # Check 2: Fallback for Android/Termux (Restricted /proc/net/arp access)
-    # If we couldn't find any peers (likely permission denied), we fall back
-    # to allowing IPs on the SAME SUBNET. This assumes the hotspot is a /24 (255.255.255.0).
-    if not auth_success:
-        try:
-            local_ip = network.get_local_ip()
-            # Strict mode: Only allow if first 3 octets match (e.g. 10.11.36.x)
-            if network.is_same_subnet(local_ip, remote_ip):
-                print(f"SECURITY NOTICE: Allowed peer {remote_ip} (Same Subnet as {local_ip}) - Fallback mode.")
-                auth_success = True
-        except Exception:
-            pass
-
-    if auth_success:
         return None  # Access Granted
         
     # 3. Deny Everyone Else

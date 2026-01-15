@@ -1,5 +1,86 @@
 import socket
 import subprocess
+import ipaddress
+
+def get_hotspot_interface_ifconfig():
+    """Find hotspot interface via ifconfig."""
+    try:
+        # Run ifconfig (available in Termux/busybox)
+        result = subprocess.run(['ifconfig'], capture_output=True, text=True)
+        for line in result.stdout.splitlines():
+            # Look for common hotspot interface keywords
+            if any(kw in line.lower() for kw in ('wlan', 'ap', 'tether', 'hotspot', 'rndis')):
+                parts = line.strip().split(':')
+                if len(parts) > 0:
+                    iface = parts[0].strip()
+                    # Filter out unreasonable names
+                    if iface and len(iface) < 20 and 'lo' not in iface:  
+                        return iface
+    except Exception as e:
+        print(f"Warning: Error detecting hotspot interface: {e}")
+    return None
+
+def get_interface_ip(iface):
+    """Get IP address for specific interface."""
+    try:
+        result = subprocess.run(['ifconfig', iface], capture_output=True, text=True)
+        for line in result.stdout.splitlines():
+            if 'inet ' in line:
+                # Extract IP from 'inet addr:X.X.X.X' or 'inet X.X.X.X'
+                parts = line.split('inet ')
+                if len(parts) > 1:
+                    ip_part = parts[1].strip().split()
+                    if ip_part:
+                        ip = ip_part[0].strip('addr:') 
+                        if ip != '127.0.0.1':
+                            return ip
+    except Exception:
+        pass
+    return None
+
+def get_hotspot_info():
+    """
+    Get hotspot interface, IP, and calculated /24 subnet.
+    Returns: (subnet_cidr_str, gateway_ip, interface_name)
+    Example: ('192.168.43.0/24', '192.168.43.1', 'wlan0')
+    """
+    iface = get_hotspot_interface_ifconfig()
+    
+    # Fallback probe common names if detection failed
+    if not iface:
+        common_ifaces = ['wlan0', 'wlan1', 'ap0', 'tether0', 'rndis0']
+        for cand in common_ifaces:
+            if get_interface_ip(cand):
+                iface = cand
+                break
+    
+    if iface:
+        ip = get_interface_ip(iface)
+        if ip:
+            # Assume /24 subnet for hotspots (standard behavior)
+            # 192.168.43.1 -> 192.168.43.0/24
+            try:
+                network = ipaddress.ip_network(f"{ip}/24", strict=False)
+                return str(network), ip, iface
+            except ValueError:
+                pass
+                
+    return None, None, None
+
+def is_ip_in_hotspot_subnet(ip_addr):
+    """
+    Checks if a given IP address belongs to the current Hotspot Subnet.
+    """
+    subnet_cidr, _, _ = get_hotspot_info()
+    if not subnet_cidr:
+        return False
+        
+    try:
+        network = ipaddress.ip_network(subnet_cidr)
+        ip = ipaddress.ip_address(ip_addr)
+        return ip in network
+    except ValueError:
+        return False
 
 def get_connected_peers():
     """
@@ -9,7 +90,7 @@ def get_connected_peers():
     """
     peers = set()
     
-    # 1. Try /proc/net/arp (Leagcy/Standard IPv4)
+    # 1. Try /proc/net/arp (Legacy/Standard IPv4)
     try:
         with open('/proc/net/arp', 'r') as f:
             lines = f.readlines()
